@@ -1,0 +1,46 @@
+{
+  "name": "node-red-contrib-bluesound",
+  "version": "0.0.1",
+  "description": "Node-RED Node für Bluesound/BluOS Geräte-Steuerung",
+  "keywords": [
+    "node-red",
+    "bluesound",
+    "bluos",
+    "audio",
+    "music",
+    "streaming",
+    "multiroom"
+  ],
+  "homepage": "https://github.com/yourusername/node-red-contrib-bluesound",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/node-red-contrib-bluesound.git"
+  },
+  "author": {
+    "name": "elvito",
+    "email": ""
+  },
+  "license": "MIT",
+  "main": "bluesound.js",
+  "node-red": {
+    "nodes": {
+      "bluesound": "bluesound.js"
+    }
+  },
+  "dependencies": {
+    "xml2js": "^0.4.23"
+  },
+  "devDependencies": {
+    "mocha": "^10.0.0",
+    "node-red-node-test-helper": "^0.3.0"
+  },
+  "scripts": {
+    "test": "mocha test/**/*_spec.js"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/node-red-contrib-bluesound/issues"
+  }
+}
