@@ -13,8 +13,10 @@ gerne forken.
 - Einfache Integration in Node-RED Flows
 
 ## 📦 Installation
-cd /root/.node-red/
-npm install /<path>/<to>/<fíles>
+``cd /root/.node-red/``
+
+``npm install /<path>/<to>/<fíles>``
+
 restart NodeRed
 
 ## 📚 Weitere Ressourcen
