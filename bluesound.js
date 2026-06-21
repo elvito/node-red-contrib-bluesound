@@ -1,6 +1,7 @@
 module.exports = function(RED) {
     const axios = require('axios');
     const xml2js = require('xml2js');
+    // Parser für xml2js@0.6.2 (kein parseStringPromise verfügbar)
     const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true });
 
     // Config Node für Bluesound-Geräte
@@ -35,13 +36,22 @@ module.exports = function(RED) {
         node.timeout = configNode.timeout;
         const baseUrl = `http://${node.host}:${node.port}`;
 
-        // Helper: API-Anfrage an BluOS
+        // Helper: API-Anfrage an BluOS (angepasst für xml2js@0.6.2)
         async function makeBluesoundRequest(path) {
             try {
                 const url = `${baseUrl}${path}`;
                 const response = await axios.get(url, { timeout: node.timeout });
                 if (response.status === 200) {
-                    return await parser.parseStringPromise(response.data);
+                    // Manuell als Promise umsetzen, da xml2js@0.6.2 kein parseStringPromise hat
+                    return await new Promise((resolve, reject) => {
+                        parser.parseString(response.data, (err, result) => {
+                            if (err) {
+                                reject(new Error(`XML parsing failed: ${err.message}`));
+                            } else {
+                                resolve(result);
+                            }
+                        });
+                    });
                 } else {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
