@@ -1,8 +1,6 @@
 # Bluesound Node für Node-RED
 
-Ein Node-RED Node zur Steuerung von Bluesound-Geräten über die BluOS API. Die meiste Arbeit hat Claude AI gemacht, also gebt ihm die Schuld :) 
-Ich brauche nicht alle Funktionen und habe nur die getestet, die mir wichtig waren. Wer den Node erweitern/verbessern möchte, kann mein Repo 
-gerne forken.
+Funktioniert leider nicht mehr, ich gebe Bescheid wenn sich daran etwas ändert :( 
 
 ## 🎵 Features
 
