@@ -13,10 +13,10 @@
         outputs: 0,
         icon: 'font-awesome/fa-volume-up',
         label: function() {
-            return this.name || this.host + ':' + this.port;
+            // Korrigiert: Zeige nur den Namen oder "Bluesound Config", NICHT host:port
+            return this.name || "Bluesound Config";
         },
         oneditprepare: function() {
-            // Spinner für Port und Timeout
             $('#node-input-port').spinner({ min: 1, max: 65535 });
             $('#node-input-timeout').spinner({ min: 1000, max: 30000, step: 1000 });
         }
@@ -36,7 +36,8 @@
         outputs: 1,
         icon: 'font-awesome/fa-music',
         label: function() {
-            return this.name || this.action || 'Bluesound';
+            // Korrigiert: Zeige nur den Namen oder die Aktion, NICHT host:port
+            return this.name || this.action || "Bluesound";
         },
         oneditprepare: function() {
             // Dropdown für Aktionen füllen
@@ -72,7 +73,7 @@
             }
 
             actionField.on('change', updateValueField);
-            updateValueField(); // Initialer Aufruf
+            updateValueField();
         }
     });
 </script>
