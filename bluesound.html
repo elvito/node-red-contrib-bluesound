@@ -1,4 +1,5 @@
 <script type="text/javascript">
+    // Registriere den Config-Node für Bluesound-Geräte
     RED.nodes.registerType('bluesound-config', {
         category: 'Bluesound',
         color: '#a6bbcf',
@@ -12,14 +13,16 @@
         outputs: 0,
         icon: 'font-awesome/fa-volume-up',
         label: function() {
-            return this.name || 'Bluesound Config';
+            return this.name || this.host + ':' + this.port;
         },
         oneditprepare: function() {
+            // Spinner für Port und Timeout
             $('#node-input-port').spinner({ min: 1, max: 65535 });
             $('#node-input-timeout').spinner({ min: 1000, max: 30000, step: 1000 });
         }
     });
 
+    // Registriere den Haupt-Node für Bluesound-Steuerung
     RED.nodes.registerType('bluesound', {
         category: 'Bluesound',
         color: '#a6bbcf',
@@ -27,15 +30,16 @@
             name: { value: '' },
             device: { type: 'bluesound-config', required: true },
             action: { value: 'status' },
-            preset: { value: '' }
+            value: { value: '' }
         },
         inputs: 1,
         outputs: 1,
         icon: 'font-awesome/fa-music',
         label: function() {
-            return this.name || 'Bluesound';
+            return this.name || this.action || 'Bluesound';
         },
         oneditprepare: function() {
+            // Dropdown für Aktionen füllen
             $('#node-input-action').append(
                 $('<option></option>').val('status').text('Status'),
                 $('<option></option>').val('play').text('Play'),
@@ -53,6 +57,22 @@
                 $('<option></option>').val('shuffle').text('Shuffle'),
                 $('<option></option>').val('repeat').text('Repeat')
             );
+
+            // Zeige/Verstecke das Value-Feld je nach Aktion
+            const actionField = $('#node-input-action');
+            const valueField = $('#node-input-value').closest('.form-row');
+
+            function updateValueField() {
+                const action = actionField.val();
+                if (['volume', 'playurl', 'preset'].includes(action)) {
+                    valueField.show();
+                } else {
+                    valueField.hide();
+                }
+            }
+
+            actionField.on('change', updateValueField);
+            updateValueField(); // Initialer Aufruf
         }
     });
 </script>
