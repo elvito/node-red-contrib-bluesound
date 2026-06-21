@@ -1,5 +1,4 @@
 <script type="text/javascript">
-    // Registriere den Config-Node für Bluesound-Geräte
     RED.nodes.registerType('bluesound-config', {
         category: 'Bluesound',
         color: '#a6bbcf',
@@ -13,7 +12,6 @@
         outputs: 0,
         icon: 'font-awesome/fa-volume-up',
         label: function() {
-            // Korrigiert: Zeige nur den Namen oder "Bluesound Config", NICHT host:port
             return this.name || "Bluesound Config";
         },
         oneditprepare: function() {
@@ -22,7 +20,6 @@
         }
     });
 
-    // Registriere den Haupt-Node für Bluesound-Steuerung
     RED.nodes.registerType('bluesound', {
         category: 'Bluesound',
         color: '#a6bbcf',
@@ -36,11 +33,9 @@
         outputs: 1,
         icon: 'font-awesome/fa-music',
         label: function() {
-            // Korrigiert: Zeige nur den Namen oder die Aktion, NICHT host:port
             return this.name || this.action || "Bluesound";
         },
         oneditprepare: function() {
-            // Dropdown für Aktionen füllen
             $('#node-input-action').append(
                 $('<option></option>').val('status').text('Status'),
                 $('<option></option>').val('play').text('Play'),
@@ -59,16 +54,19 @@
                 $('<option></option>').val('repeat').text('Repeat')
             );
 
-            // Zeige/Verstecke das Value-Feld je nach Aktion
             const actionField = $('#node-input-action');
-            const valueField = $('#node-input-value').closest('.form-row');
+            const valueRow = $('<div class="form-row">')
+                .append('<label for="node-input-value">Value</label>')
+                .append('<input type="text" id="node-input-value">');
+
+            actionField.closest('.form-row').after(valueRow);
 
             function updateValueField() {
                 const action = actionField.val();
                 if (['volume', 'playurl', 'preset'].includes(action)) {
-                    valueField.show();
+                    valueRow.show();
                 } else {
-                    valueField.hide();
+                    valueRow.hide();
                 }
             }
 
