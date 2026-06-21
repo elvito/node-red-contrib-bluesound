@@ -1,4 +1,5 @@
 <script type="text/javascript">
+    // Config-Node (unverändert, aber zur Vollständigkeit)
     RED.nodes.registerType('bluesound-config', {
         category: 'Bluesound',
         color: '#a6bbcf',
@@ -20,14 +21,15 @@
         }
     });
 
+    // Haupt-Node (KORRIGIERT: value-Feld NUR dynamisch, NICHT in defaults!)
     RED.nodes.registerType('bluesound', {
         category: 'Bluesound',
         color: '#a6bbcf',
         defaults: {
             name: { value: '' },
             device: { type: 'bluesound-config', required: true },
-            action: { value: 'status' },
-            value: { value: '' }
+            action: { value: 'status' }
+            // ⚠️ value-FELD ENTFERNT! (wird dynamisch eingefügt)
         },
         inputs: 1,
         outputs: 1,
@@ -36,6 +38,7 @@
             return this.name || this.action || "Bluesound";
         },
         oneditprepare: function() {
+            // Dropdown für Aktionen
             $('#node-input-action').append(
                 $('<option></option>').val('status').text('Status'),
                 $('<option></option>').val('play').text('Play'),
@@ -54,10 +57,11 @@
                 $('<option></option>').val('repeat').text('Repeat')
             );
 
+            // Value-Feld DYNAMISCH einfügen (NICHT in defaults!)
             const actionField = $('#node-input-action');
             const valueRow = $('<div class="form-row">')
                 .append('<label for="node-input-value">Value</label>')
-                .append('<input type="text" id="node-input-value">');
+                .append('<input type="text" id="node-input-value" placeholder="e.g. 50 or preset ID">');
 
             actionField.closest('.form-row').after(valueRow);
 
