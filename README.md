@@ -1,7 +1,7 @@
 # node-red-contrib-bluesound
 
-Die Software wurde per KI generiert, keine Gewähr dass alles funktioniert. Node-RED Nodes zur Steuerung von Bluesound / BluOS Geräten über die HTTP API (Port 11000).
-
+Node-RED Nodes zur Steuerung von Bluesound / BluOS Geräten über die HTTP API (Port 11000).
+Diese Software wurde mit einer KI generiert, daher keine Garantie, dass es für immer funktioniert. 
 ## Installation
 
 ```bash
