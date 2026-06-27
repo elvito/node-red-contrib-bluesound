@@ -1,81 +1,260 @@
+<!-- ══════════════════════════════════════════════
+     CONFIG NODE: bluesound-device
+     ══════════════════════════════════════════════ -->
 <script type="text/javascript">
-    // Config-Node (unverändert, aber zur Vollständigkeit)
-    RED.nodes.registerType('bluesound-config', {
-        category: 'Bluesound',
-        color: '#a6bbcf',
+    RED.nodes.registerType("bluesound-device", {
+        category: "config",
         defaults: {
-            name: { value: '' },
-            host: { value: '', required: true },
-            port: { value: 11000 },
-            timeout: { value: 5000 }
+            name: { value: "" },
+            host: { value: "192.168.1.100", required: true },
+            port: { value: 11000, required: true, validate: RED.validators.number() }
         },
-        inputs: 0,
-        outputs: 0,
-        icon: 'font-awesome/fa-volume-up',
-        label: function() {
-            return this.name || "Bluesound Config";
-        },
-        oneditprepare: function() {
-            $('#node-input-port').spinner({ min: 1, max: 65535 });
-            $('#node-input-timeout').spinner({ min: 1000, max: 30000, step: 1000 });
+        label: function () {
+            return this.name || (this.host + ":" + this.port);
         }
     });
+</script>
 
-    // Haupt-Node (KORRIGIERT: value-Feld NUR dynamisch, NICHT in defaults!)
-    RED.nodes.registerType('bluesound', {
-        category: 'Bluesound',
-        color: '#a6bbcf',
+<script type="text/html" data-template-name="bluesound-device">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Wohnzimmer Speaker" />
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-host"><i class="fa fa-globe"></i> IP / Host</label>
+        <input type="text" id="node-config-input-host" placeholder="192.168.1.100" />
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-port"><i class="fa fa-plug"></i> Port</label>
+        <input type="number" id="node-config-input-port" placeholder="11000" min="1" max="65535" />
+    </div>
+    <div class="form-tips">
+        <b>Tipp:</b> Die IP-Adresse findest du in der BluOS Controller App unter
+        Einstellungen → Geräteinformationen → Diagnostics.
+    </div>
+</script>
+
+<script type="text/html" data-help-name="bluesound-device">
+    <p>Konfiguriert die Verbindung zu einem Bluesound / BluOS Gerät.</p>
+    <h3>Einstellungen</h3>
+    <dl class="message-properties">
+        <dt>IP / Host</dt><dd>IP-Adresse oder Hostname des Geräts</dd>
+        <dt>Port</dt><dd>Standard: 11000 (BluOS REST API)</dd>
+    </dl>
+</script>
+
+<!-- ══════════════════════════════════════════════
+     COMMAND NODE: bluesound-command
+     ══════════════════════════════════════════════ -->
+<script type="text/javascript">
+    RED.nodes.registerType("bluesound-command", {
+        category: "music",
+        color: "#1a78c2",
         defaults: {
-            name: { value: '' },
-            device: { type: 'bluesound-config', required: true },
-            action: { value: 'status' }
-            // ⚠️ value-FELD ENTFERNT! (wird dynamisch eingefügt)
+            name:    { value: "" },
+            device:  { value: "", type: "bluesound-device", required: true },
+            command: { value: "status" },
+            params:  { value: {} }
         },
         inputs: 1,
         outputs: 1,
-        icon: 'font-awesome/fa-music',
-        label: function() {
-            return this.name || this.action || "Bluesound";
+        icon: "music.png",
+        paletteLabel: "Bluesound",
+        label: function () {
+            return this.name || ("Bluesound: " + (this.command || "command"));
         },
-        oneditprepare: function() {
-            // Dropdown für Aktionen
-            $('#node-input-action').append(
-                $('<option></option>').val('status').text('Status'),
-                $('<option></option>').val('play').text('Play'),
-                $('<option></option>').val('pause').text('Pause'),
-                $('<option></option>').val('stop').text('Stop'),
-                $('<option></option>').val('next').text('Next'),
-                $('<option></option>').val('previous').text('Previous'),
-                $('<option></option>').val('volume').text('Volume'),
-                $('<option></option>').val('mute').text('Mute'),
-                $('<option></option>').val('playurl').text('Play URL'),
-                $('<option></option>').val('preset').text('Load Preset'),
-                $('<option></option>').val('presets').text('List Presets'),
-                $('<option></option>').val('syncstatus').text('Sync Status'),
-                $('<option></option>').val('services').text('Services'),
-                $('<option></option>').val('shuffle').text('Shuffle'),
-                $('<option></option>').val('repeat').text('Repeat')
-            );
-
-            // Value-Feld DYNAMISCH einfügen (NICHT in defaults!)
-            const actionField = $('#node-input-action');
-            const valueRow = $('<div class="form-row">')
-                .append('<label for="node-input-value">Value</label>')
-                .append('<input type="text" id="node-input-value" placeholder="e.g. 50 or preset ID">');
-
-            actionField.closest('.form-row').after(valueRow);
-
-            function updateValueField() {
-                const action = actionField.val();
-                if (['volume', 'playurl', 'preset'].includes(action)) {
-                    valueRow.show();
-                } else {
-                    valueRow.hide();
-                }
+        oneditprepare: function () {
+            // Render params as simple key=value textarea
+            var params = this.params || {};
+            var lines = Object.entries(params).map(([k, v]) => k + "=" + v).join("\n");
+            $("#node-input-params-text").val(lines);
+        },
+        oneditsave: function () {
+            var text = $("#node-input-params-text").val().trim();
+            var params = {};
+            if (text) {
+                text.split("\n").forEach(function (line) {
+                    var idx = line.indexOf("=");
+                    if (idx > 0) {
+                        var k = line.substring(0, idx).trim();
+                        var v = line.substring(idx + 1).trim();
+                        if (k) params[k] = v;
+                    }
+                });
             }
-
-            actionField.on('change', updateValueField);
-            updateValueField();
+            this.params = params;
         }
     });
+</script>
+
+<script type="text/html" data-template-name="bluesound-command">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="z.B. Lautstärke setzen" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-device"><i class="fa fa-hdd-o"></i> Gerät</label>
+        <input type="text" id="node-input-device" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-command"><i class="fa fa-play"></i> Befehl</label>
+        <select id="node-input-command" style="width:70%">
+            <option value="status">status – Aktuellen Status abrufen</option>
+            <option value="play">play – Wiedergabe starten</option>
+            <option value="pause">pause – Pause</option>
+            <option value="togglepause">togglepause – Play/Pause umschalten</option>
+            <option value="stop">stop – Stop</option>
+            <option value="next">next – Nächster Titel</option>
+            <option value="prev">prev – Vorheriger Titel</option>
+            <option value="volume">volume – Lautstärke (Parameter: level=0-100)</option>
+            <option value="mute">mute – Stummschalten</option>
+            <option value="unmute">unmute – Stummschaltung aufheben</option>
+            <option value="shuffle">shuffle – Zufallswiedergabe (Parameter: state=0/1)</option>
+            <option value="repeat">repeat – Wiederholen (Parameter: state=0/1/2)</option>
+            <option value="presets">presets – Preset-Liste abrufen</option>
+            <option value="preset">preset – Preset aktivieren (Parameter: id=1-40)</option>
+            <option value="syncstatus">syncstatus – SyncStatus abrufen</option>
+            <option value="playlist">playlist – Aktuelle Wiedergabeliste</option>
+            <option value="clear">clear – Wiedergabeliste leeren</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-params-text"><i class="fa fa-list"></i> Parameter</label>
+        <textarea id="node-input-params-text" rows="4" style="width:70%; font-family:monospace"
+            placeholder="level=50&#10;state=1"></textarea>
+    </div>
+    <div class="form-tips">
+        Parameter können auch per <code>msg.params</code> oder <code>msg.payload</code>
+        (als Objekt) übergeben werden und überschreiben die Konfiguration hier.<br/>
+        Bei <b>volume</b>: <code>msg.payload = 50</code> setzt direkt die Lautstärke.
+    </div>
+</script>
+
+<script type="text/html" data-help-name="bluesound-command">
+    <p>Sendet einen Befehl an ein Bluesound / BluOS Gerät über die HTTP API (Port 11000).</p>
+
+    <h3>Eingabe</h3>
+    <dl class="message-properties">
+        <dt>msg.command <span class="property-type">string</span></dt>
+        <dd>Überschreibt den konfigurierten Befehl (z.B. <code>"play"</code>, <code>"volume"</code>)</dd>
+        <dt>msg.params <span class="property-type">object</span></dt>
+        <dd>Zusätzliche Query-Parameter (z.B. <code>{level: 50}</code>)</dd>
+        <dt>msg.payload <span class="property-type">object | number</span></dt>
+        <dd>Bei Objekt: wird als Parameter genutzt. Bei Zahl + volume-Befehl: direkt als Lautstärke.</dd>
+        <dt>msg.host / msg.port <span class="property-type">string / number</span></dt>
+        <dd>Überschreibt die konfigurierte Geräteadresse</dd>
+    </dl>
+
+    <h3>Ausgabe</h3>
+    <dl class="message-properties">
+        <dt>msg.payload <span class="property-type">object</span></dt>
+        <dd>Geparste XML-Antwort des Geräts als JavaScript-Objekt</dd>
+        <dt>msg.bluosRaw <span class="property-type">string</span></dt>
+        <dd>Rohe XML-Antwort</dd>
+        <dt>msg.bluosCommand <span class="property-type">string</span></dt>
+        <dd>Ausgeführter Befehl</dd>
+    </dl>
+
+    <h3>Verfügbare Befehle</h3>
+    <ul>
+        <li><b>play</b> – Wiedergabe (optional: <code>id</code>, <code>seek</code>, <code>url</code>)</li>
+        <li><b>pause</b> – Pause</li>
+        <li><b>togglepause</b> – Play/Pause umschalten</li>
+        <li><b>stop</b> – Stopp</li>
+        <li><b>next</b> / <b>prev</b> – Titel wechseln</li>
+        <li><b>volume</b> – Lautstärke (Parameter: <code>level=0-100</code>)</li>
+        <li><b>mute</b> / <b>unmute</b> – Stummschalten</li>
+        <li><b>shuffle</b> – Zufallswiedergabe (<code>state=0</code> oder <code>state=1</code>)</li>
+        <li><b>repeat</b> – Wiederholen (<code>state=0</code>=alles, <code>1</code>=Titel, <code>2</code>=aus)</li>
+        <li><b>preset</b> – Preset aktivieren (<code>id=1</code> bis <code>id=40</code>)</li>
+        <li><b>presets</b> – Liste aller Presets</li>
+        <li><b>status</b> – Aktueller Status</li>
+        <li><b>syncstatus</b> – Sync-Status (Lautstärke, Gruppeninfo)</li>
+        <li><b>playlist</b> – Aktuelle Wiedergabeliste</li>
+        <li><b>clear</b> – Wiedergabeliste leeren</li>
+    </ul>
+</script>
+
+<!-- ══════════════════════════════════════════════
+     STATUS NODE: bluesound-status
+     ══════════════════════════════════════════════ -->
+<script type="text/javascript">
+    RED.nodes.registerType("bluesound-status", {
+        category: "music",
+        color: "#1a78c2",
+        defaults: {
+            name:         { value: "" },
+            device:       { value: "", type: "bluesound-device", required: true },
+            interval:     { value: 5, validate: RED.validators.number() },
+            onlyOnChange: { value: true }
+        },
+        inputs: 0,
+        outputs: 1,
+        icon: "music.png",
+        paletteLabel: "Bluesound Status",
+        label: function () {
+            return this.name || "Bluesound Status";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="bluesound-status">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Bluesound Status" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-device"><i class="fa fa-hdd-o"></i> Gerät</label>
+        <input type="text" id="node-input-device" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-interval"><i class="fa fa-clock-o"></i> Timeout (s)</label>
+        <input type="number" id="node-input-interval" min="1" max="60" placeholder="5" />
+        <span> Sekunden (BluOS Long-Poll Timeout)</span>
+    </div>
+    <div class="form-row">
+        <label for="node-input-onlyOnChange"><i class="fa fa-filter"></i> Nur bei Änderung</label>
+        <input type="checkbox" id="node-input-onlyOnChange" style="width:auto; margin-left:0" />
+    </div>
+    <div class="form-tips">
+        Nutzt BluOS Long-Polling: Der Node wartet auf eine Statusänderung am Gerät
+        und sendet dann sofort eine Nachricht. So werden Änderungen in Echtzeit
+        erkannt ohne unnötigen Traffic.
+    </div>
+</script>
+
+<script type="text/html" data-help-name="bluesound-status">
+    <p>Empfängt Status-Updates von einem Bluesound / BluOS Gerät via Long-Polling.</p>
+    <p>Der Node fragt <code>/Status</code> mit dem BluOS Long-Poll-Mechanismus ab:
+    Das Gerät antwortet erst wenn sich etwas ändert oder der Timeout abläuft.
+    Dadurch werden Änderungen (Titelwechsel, Play/Pause, Lautstärke) nahezu in Echtzeit
+    gemeldet.</p>
+
+    <h3>Ausgabe (msg.payload)</h3>
+    <dl class="message-properties">
+        <dt>state <span class="property-type">string</span></dt>
+        <dd><code>play</code>, <code>pause</code> oder <code>stop</code></dd>
+        <dt>title <span class="property-type">string</span></dt>
+        <dd>Aktueller Titel</dd>
+        <dt>artist <span class="property-type">string</span></dt>
+        <dd>Interpret</dd>
+        <dt>album <span class="property-type">string</span></dt>
+        <dd>Album</dd>
+        <dt>volume <span class="property-type">string</span></dt>
+        <dd>Lautstärke in Prozent</dd>
+        <dt>secs <span class="property-type">string</span></dt>
+        <dd>Aktuelle Position in Sekunden</dd>
+        <dt>totlen <span class="property-type">string</span></dt>
+        <dd>Gesamtlänge in Sekunden</dd>
+        <dt>service <span class="property-type">string</span></dt>
+        <dd>Aktive Quelle (z.B. Tidal, LocalMusic, TuneIn)</dd>
+        <dt>shuffle <span class="property-type">string</span></dt>
+        <dd>Zufallswiedergabe: 0=aus, 1=an</dd>
+        <dt>repeat <span class="property-type">string</span></dt>
+        <dd>Wiederholen: 0=alles, 1=Titel, 2=aus</dd>
+    </dl>
+    <dl class="message-properties">
+        <dt>msg.changed <span class="property-type">boolean</span></dt>
+        <dd>true wenn sich der Status seit der letzten Abfrage geändert hat</dd>
+    </dl>
 </script>
