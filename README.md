@@ -1,36 +1,37 @@
-# node-red-contrib-scrobbler
+# node-red-contrib-bluesound
 
-Node-RED Node zum Scrobbeln zu **Last.fm** und/oder **ListenBrainz**.  
-Funktioniert direkt mit [`node-red-contrib-bluesound`](https://github.com/elvito/node-red-contrib-bluesound) und jeder anderen Quelle, die Wiedergabedaten als `msg.payload` liefert.
-
-Keine externen Abhängigkeiten — kein zusätzliches `npm install` nötig.  
-MD5-Signaturen (für Last.fm) werden über das eingebaute Node.js `crypto`-Modul berechnet.
+Node-RED Node zur Steuerung von **Bluesound / BluOS** Lautsprechern über die HTTP-API (Port 11000).  
+Liefert Wiedergabe-Status via Long-Polling und ermöglicht vollständige Steuerung (Play, Pause, Lautstärke, Presets uvm.).
 
 > ⚠️ **Hinweis:** Dieser Node wurde mit KI-Unterstützung (Claude / Anthropic) erstellt.  
 > Er funktioniert, wird aber ohne Garantie auf Dauerhaftigkeit oder Vollständigkeit bereitgestellt.
+
+> ℹ️ **Aktueller Status:** Der Node befindet sich in aktiver Entwicklung. Bei Problemen bitte ein Issue öffnen.
 
 ---
 
 ## Enthaltene Nodes
 
-### `scrobbler-config` (Config-Node)
-Speichert Zugangsdaten für Last.fm und/oder ListenBrainz. Beide Dienste können gleichzeitig aktiv sein.
+### `bluesound-device` (Config-Node)
+Speichert IP-Adresse und Port eines Bluesound-Geräts. Kann von mehreren Nodes gleichzeitig genutzt werden.
 
-### `scrobbler` (Haupt-Node)
-Empfängt `msg.payload`, erkennt Titelwechsel, meldet **Now Playing** sofort und sendet **Scrobbles** zum richtigen Zeitpunkt.
+### `bluesound-status`
+Empfängt Status-Updates vom Gerät via **BluOS Long-Polling** — das Gerät antwortet erst wenn sich etwas ändert. Titelwechsel, Play/Pause und Lautstärkeänderungen werden so nahezu in Echtzeit gemeldet, ohne unnötigen Netzwerktraffic.
 
-### `scrobbler-lastfm-auth` (Einmaliger Hilfs-Node)
-Führt den Last.fm-Authentifizierungsflow durch und liefert den Session Key — muss nur einmal ausgeführt werden.
+### `bluesound-command`
+Sendet Steuerbefehle an das Gerät (Play, Pause, Lautstärke, Presets, ...).
 
 ---
 
 ## Passende Nodes
 
-Dieser Node ist auf die Ausgabe von [`node-red-contrib-bluesound`](https://github.com/elvito/node-red-contrib-bluesound) ausgelegt. Der Bluesound-Node liefert Wiedergabedaten (Titel, Artist, Album, State, Länge) direkt im Format, das der Scrobbler erwartet — ohne weiteres Mapping.
+Der `bluesound-status` Node gibt Wiedergabedaten direkt im Format aus, das [`node-red-contrib-scrobbler`](https://github.com/elvito/node-red-contrib-scrobbler) erwartet — kein Mapping nötig.
 
 ```
 [bluesound-status] ──→ [scrobbler]
 ```
+
+Mit dem Scrobbler werden Titel automatisch an **Last.fm** und/oder **ListenBrainz** gemeldet.
 
 ---
 
@@ -38,7 +39,7 @@ Dieser Node ist auf die Ausgabe von [`node-red-contrib-bluesound`](https://githu
 
 ```bash
 cd ~/.node-red
-npm install elvito/node-red-contrib-scrobbler
+npm install elvito/node-red-contrib-bluesound
 node-red-restart
 ```
 
@@ -46,7 +47,7 @@ node-red-restart
 
 ```bash
 cd ~/.node-red
-npm install elvito/node-red-contrib-scrobbler
+npm install elvito/node-red-contrib-bluesound
 node-red-restart
 ```
 
@@ -56,111 +57,92 @@ Da das Paket direkt von GitHub installiert wird, zieht `npm install` immer den a
 
 ## Einrichtung
 
-### 1. ListenBrainz
+### 1. IP-Adresse des Geräts herausfinden
 
-1. Auf [listenbrainz.org/profile](https://listenbrainz.org/profile/) einloggen
-2. Den **User Token** kopieren
-3. Einen `scrobbler-config` Node anlegen, ListenBrainz aktivieren, Token eintragen, deployen
+Die IP-Adresse findest du in der **BluOS Controller App**:  
+Einstellungen → Gerät auswählen → Geräteinformationen → Diagnostics
 
-### 2. Last.fm — einmaliger Auth-Flow
+### 2. Config-Node anlegen
 
-Last.fm benötigt einen dauerhaften **Session Key**, der einmalig über einen 2-Schritt-Prozess geholt wird.
+Einen `bluesound-device` Config-Node anlegen und IP-Adresse sowie Port (Standard: `11000`) eintragen.
 
-#### Vorbereitung
+### 3. Status-Node platzieren
 
-1. API Key + Secret auf [last.fm/api/account/create](https://www.last.fm/api/account/create) erstellen
-2. Den `scrobbler-lastfm-auth` Node in Node-RED platzieren
-3. Zwei **Inject-Nodes** anlegen und mit dem Auth-Node verbinden
-4. Einen **Debug-Node** an den Ausgang des Auth-Nodes hängen (auf „komplette msg" stellen)
-
-#### Schritt 1 — Token holen & Browser-Link erhalten
-
-Ersten Inject-Node so konfigurieren:
-
-- **msg.payload** → Typ: `JSON`
-- Wert:
-```json
-{
-  "step": 1,
-  "apiKey": "dein-api-key",
-  "apiSecret": "dein-api-secret"
-}
-```
-
-Inject auslösen. Der Node holt automatisch einen Token von der Last.fm API und gibt im Debug-Panel sowie als Node-RED Warnung eine **Auth-URL** aus. Diese URL im Browser öffnen und die App bei Last.fm **Allow** klicken.
-
-#### Schritt 2 — Session Key abrufen
-
-Direkt nach dem Klick auf „Allow" den zweiten Inject-Node auslösen:
-
-- **msg.payload** → Typ: `JSON`
-- Wert:
-```json
-{
-  "step": 2
-}
-```
-
-Der Node antwortet mit dem **Session Key** im Debug-Panel (`msg.payload.key`).
-
-> ⚠️ Schritt 2 muss zeitnah nach der Browser-Autorisierung ausgeführt werden — der Token läuft sonst ab.
-
-#### Schritt 3 — Session Key eintragen
-
-Den Session Key in den `scrobbler-config` Node eintragen (Feld „Session Key") und deployen. Fertig — der Session Key ist dauerhaft gültig und muss nie erneuert werden.
+Den `bluesound-status` Node in den Flow ziehen, Config-Node auswählen. Der Node startet automatisch und sendet bei jeder Statusänderung eine Nachricht.
 
 ---
 
-## Feld-Mapping
+## `bluesound-status` — Ausgabe
 
-Standard-Felder (passend für `bluesound-status`):
-
-| Feld     | Standard  | Beschreibung              |
-|----------|-----------|---------------------------|
-| State    | `state`   | `play` / `pause` / `stop` |
-| Artist   | `artist`  | Interpret                 |
-| Title    | `title`   | Titelname                 |
-| Album    | `album`   | Album                     |
-| Duration | `totlen`  | Gesamtlänge in Sekunden   |
-| Service  | `service` | Musik-Dienst (z.B. Tidal) |
-
-Für andere Quellen können die Feldnamen im `scrobbler` Node unter **„Feld-Mapping anpassen"** geändert werden.
-
----
-
-## Scrobble-Logik
-
-- **Now Playing** wird sofort gemeldet wenn ein neuer Titel erkannt wird
-- **Scrobble** wird nach dem konfigurierten Delay gesendet (Standard 30s), aber frühestens nach 50% der Titellänge (Last.fm-Regel)
-- Tracks unter 30 Sekunden werden nicht gescrobbelt
-- Pause/Stop bricht ausstehende Scrobble-Timer ab
-- Doppelte Updates (gleicher Titel) werden ignoriert
-
----
-
-## Ausgabe
+`msg.payload` enthält den aktuellen Gerätestatus als Objekt:
 
 ```json
 {
-  "topic": "nowplaying",
-  "service": "lastfm",
-  "payload": {
-    "type": "nowplaying",
-    "service": "lastfm",
-    "ok": true,
-    "track": {
-      "artist": "Radiohead",
-      "title": "Creep",
-      "album": "Pablo Honey",
-      "duration": 238,
-      "timestamp": 1234567890
-    },
-    "detail": {}
-  }
+  "state":   "play",
+  "title":   "Creep",
+  "artist":  "Radiohead",
+  "album":   "Pablo Honey",
+  "volume":  "42",
+  "secs":    "87",
+  "totlen":  "238",
+  "service": "Tidal",
+  "shuffle": "0",
+  "repeat":  "2"
 }
 ```
 
-`msg.topic` ist `"nowplaying"` oder `"scrobble"`, `msg.service` ist `"lastfm"` oder `"listenbrainz"`.
+| Feld      | Beschreibung                                      |
+|-----------|---------------------------------------------------|
+| `state`   | `play` / `pause` / `stop`                         |
+| `title`   | Aktueller Titelname                               |
+| `artist`  | Interpret                                         |
+| `album`   | Album                                             |
+| `volume`  | Lautstärke in Prozent                             |
+| `secs`    | Aktuelle Position in Sekunden                     |
+| `totlen`  | Gesamtlänge in Sekunden                           |
+| `service` | Aktive Quelle (z.B. `Tidal`, `LocalMusic`, `TuneIn`) |
+| `shuffle` | `0` = aus, `1` = an                               |
+| `repeat`  | `0` = alles, `1` = Titel, `2` = aus               |
+
+---
+
+## `bluesound-command` — Verfügbare Befehle
+
+Der Befehl wird im Node konfiguriert oder per `msg.command` zur Laufzeit überschrieben. Parameter können im Node eingetragen oder per `msg.params` (Objekt) übergeben werden.
+
+| Befehl        | Beschreibung                                      | Parameter           |
+|---------------|---------------------------------------------------|---------------------|
+| `status`      | Aktuellen Status abrufen                          | —                   |
+| `play`        | Wiedergabe starten                                | `id`, `seek`, `url` |
+| `pause`       | Pause                                             | —                   |
+| `togglepause` | Play/Pause umschalten                             | —                   |
+| `stop`        | Stop                                              | —                   |
+| `next`        | Nächster Titel                                    | —                   |
+| `prev`        | Vorheriger Titel                                  | —                   |
+| `volume`      | Lautstärke setzen                                 | `level=0-100`       |
+| `mute`        | Stummschalten                                     | —                   |
+| `unmute`      | Stummschaltung aufheben                           | —                   |
+| `shuffle`     | Zufallswiedergabe                                 | `state=0/1`         |
+| `repeat`      | Wiederholen                                       | `state=0/1/2`       |
+| `preset`      | Preset aktivieren                                 | `id=1-40`           |
+| `presets`     | Liste aller Presets abrufen                       | —                   |
+| `playlist`    | Aktuelle Wiedergabeliste                          | —                   |
+| `clear`       | Wiedergabeliste leeren                            | —                   |
+| `syncstatus`  | Sync-Status abrufen (Gruppe, Lautstärke)          | —                   |
+
+### Lautstärke per `msg.payload` setzen
+
+```js
+msg.command = "volume";
+msg.payload = 50;  // direkt als Zahl
+```
+
+### Befehl zur Laufzeit überschreiben
+
+```js
+msg.command = "next";
+msg.params  = {};
+```
 
 ---
 
